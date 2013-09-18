@@ -1,0 +1,57 @@
+
+# This is an example README.
+# A README file is required. You will run your server program and client 
+# program and paste the log in your README file.
+
+Server:
+  Usage:
+    ./lab1_server
+
+  Game play:
+    none
+
+  Log:
+<147 marge:~/cse422/labs/lab1/lab1_sol >./lab1_server
+[SYS] Parent process for TCP communication.
+[TCP] Bulls and Cows game server started...
+[TCP] Port: 56810
+[SYS] child process forked.
+[TCP] New connection granted.
+[TCP] Recv: JOIN
+[UDP:44379] Gameplay server started.
+[TCP] Sent: JOIN_GRANT 44379
+[UDP:44379] A new game is started.
+[UDP:44379] Secret number: 3027
+[UDP:44379] Rcvd: GUESS 0123
+[UDP:44379] Sent: RESPONSE 1A2B
+[UDP:44379] Rcvd: EXIT
+[UDP:44379] Sent: EXIT_GRANT Exit granted, goodbye.
+[UDP:44379] Player has left the game.
+[SYS] child process terminated.
+
+Client:
+  Usage:
+    ./lab1_client -p <tcp_port> -s <server_addr>
+
+  Game play:
+    - guess
+      GUESS <guess_number>
+    - exit
+      EXIT
+
+  Log:
+<165 black:~/cse422/labs/lab1/lab1_sol >./lab1_client -s marge.cse.msu.edu -p 56810
+[TCP] Bulls and Cows client started...
+[TCP] Connecting to server: marge.cse.msu.edu:56810
+[TCP] Sent: JOIN
+[TCP] Rcvd: JOIN_GRANT 44379
+[UDP] Guesses will be sent to: marge.cse.msu.edu at port:44379
+[GAM] A new secret number is generated.
+[GAM] Please start guessing!
+[CMD] GUESS 0123
+[UDP] Sent: GUESS 0123
+[UDP] Rcvd: RESPONSE 1A2B
+[GAM] You guess 0123 and the response is 1A2B
+[CMD] EXIT
+[UDP] Sent: EXIT
+[UDP] Rcvd: EXIT_GRANT Exit granted, goodbye.
