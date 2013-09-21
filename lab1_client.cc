@@ -38,15 +38,15 @@ int main(int argc, char *argv[])
     }
 
     // Game play using UDP
-    cout << "[UDP] Guesses will be sent to: " << server_name_str 
-         << " at port:" << udp_server_port << endl;
+    //cout << "[UDP] Guesses will be sent to: " << server_name_str 
+         //<< " at port:" << udp_server_port << endl;
 
     while(1)
     {
 
         // GAME PLAY IN UDP
         //
-        while(get_command(outgoing_pkt) == false){}
+        //while(get_command(outgoing_pkt) == false){}
 
         // UDP: SEND/RECV INTERACTIONS
     }
