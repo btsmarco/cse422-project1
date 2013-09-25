@@ -21,7 +21,6 @@ using namespace std;
 int parse_argv(int argc, char *argv[], 
               char **tcp_server_name_str, unsigned short int &tcp_server_port);
 
-
 int main(int argc, char *argv[])
 {
     char                 *server_name_str = 0;
@@ -36,6 +35,7 @@ int main(int argc, char *argv[])
     char        recv_buf[BUFLEN + 20];
     char        send_buf[BUFLEN];
 
+    unsigned short int udp_port = 0;
     // prase the argvs, obtain server_name and tcp_server_port
     parse_argv(argc, argv, &server_name_str, tcp_server_port);
 
@@ -82,19 +82,13 @@ int main(int argc, char *argv[])
         // TCP: THE FIRST COMMAND MUST BE JOIN
         //      THE RESPONSE MUST BE JOIN_GRANT WITH A UDP PORT NUMBER
         //
-        // wipe out anything in send_buf
-        memset(send_buf, 0, sizeof(send_buf));
-        cout << "Ctrl + D to quit" << endl << ">";
-        cin >> send_buf;
-        if(cin.eof() == true)
-        {
-            if(close(tcp_connection_fd) < 0){
-                cerr << "[ERR] Error when closing TCP socket" << endl;
-            }
-            break;
-        }
-        bytes_sent = send(tcp_connection_fd, send_buf, sizeof(send_buf), 0);
-        //bytes_sent = write(tcp_connection_fd, send_buf, sizeof(send_buf));
+        My_Packet pkt;
+        pkt.type = JOIN;
+        bytes_sent = send(tcp_connection_fd, &pkt, sizeof(pkt), 0);
+
+        char type_name_sent[16];
+
+        get_type_name(pkt.type, type_name_sent);
 
         if(bytes_sent < 0)
         {
@@ -103,21 +97,17 @@ int main(int argc, char *argv[])
         }
         else
         {
-            cout << "[TCP] Sent: " << send_buf << endl;
+            cout << "[TCP] Sent: " << type_name_sent << endl;
         }
 
+        //Recieve packet from the server with udp port
+        My_Packet pkt_rcv;
+        char type_name[16];
 
-        // GOT THE PORT NUMBER
-        // EXIT THE LOOP AND CONTINUES TO UDP GAME PLAY
-        //
-        // wipe out anything in recv_buf
-        memset(recv_buf, 0, sizeof(recv_buf));
         // receive
-        bytes_received = recv(tcp_connection_fd, recv_buf, sizeof(recv_buf), 0);
-        // can also use read
-        // bytes_received = read(tcp_connection_fd, recv_buf, sizeof(recv_buf));
+        bytes_received = recv(tcp_connection_fd, &pkt_rcv, sizeof(recv_buf), 0);
 
-        // check
+        get_type_name(pkt_rcv.type, type_name);
         if(bytes_received < 0)
         {
             cerr << "[ERR] Error receiving message from server." << endl;
@@ -125,8 +115,35 @@ int main(int argc, char *argv[])
         }
         else
         {
-            cout << "[TCP] Rcvd: " << recv_buf << endl;
+            cout << "[TCP] Rcvd: " << type_name << endl;
         }
+
+        if(pkt_rcv.type == JOIN_GRANT)
+        {
+            // GOT THE PORT NUMBER
+            //unsigned short int udp_port = 0;
+            memcpy(&udp_port,pkt_rcv.buffer, sizeof(udp_port));
+            cout << "The udp port is " << atoi(pkt_rcv.buffer)  << endl;
+            udp_port = atoi(pkt_rcv.buffer);
+            // EXIT THE LOOP AND CONTINUES TO UDP GAME PLAY
+            break;
+        }
+
+        // wipe out anything in recv_buf
+        //memset(recv_buf, 0, sizeof(recv_buf));
+        // receive
+        //bytes_received = recv(tcp_connection_fd, recv_buf, sizeof(recv_buf), 0);
+
+        // check
+        //if(bytes_received < 0)
+        //{
+           //  cerr << "[ERR] Error receiving message from server." << endl;
+            //exit(1);
+       // }
+        //else
+       // {
+         //   cout << "[TCP] Rcvd: " << recv_buf << endl;
+        //}
 
         if(close(tcp_connection_fd) < 0)
         {
@@ -137,19 +154,58 @@ int main(int argc, char *argv[])
     }
 
     // Game play using UDP
-    //cout << "[UDP] Guesses will be sent to: " << server_name_str 
-         //<< " at port:" << udp_server_port << endl;
+    cout << "[UDP] Guesses will be sent to: " << server_name_str << " at port:" << udp_port << endl;
 
+    int  udp_connection_fd;       // socket file descriptor
+    sockaddr_in udp_connection_addr;     // socket addr for this process
+    socklen_t   udp_connection_addr_len = sizeof(udp_connection_addr);
+
+
+    // create a UDP socket with protocol family AF_INET
+    udp_connection_fd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    // if the return value is -1, the creation of socket is failed.
+    if(udp_connection_fd < 0)
+    {
+            cerr << "[ERR] Unable to create UDP socket." << endl;
+            exit(1);
+    }
+
+    // initialize the socket address strcut by setting all bytes to 0
+    memset(&udp_connection_addr, 0, sizeof(udp_connection_addr));
+
+    udp_connection_addr.sin_family = AF_INET;
+    udp_connection_addr.sin_port   = htons(udp_port);
+    memcpy(&udp_connection_addr.sin_addr, hostEnd -> h_addr, hostEnd -> h_length);
     while(1)
     {
+        My_Packet outgoing_pkt;
+        char type_name[16];
 
         // GAME PLAY IN UDP
         //
-        //while(get_command(outgoing_pkt) == false){}
+        while(get_command(outgoing_pkt) == false){}
+
+        bytes_sent = sendto(udp_connection_fd, &outgoing_pkt, 
+                                sizeof(outgoing_pkt), 0,
+                                (sockaddr *) &udp_connection_addr, 
+                                sizeof(udp_connection_addr));
+
+        get_type_name(outgoing_pkt.type, type_name);
+        if(bytes_sent < 0)
+        {
+            cerr << "[ERR] Error sending message to server." << endl;
+            exit(1);
+        }
+        else
+        {
+            cout << "[UDP] Sent: " << type_name << endl;
+        }
 
         // UDP: SEND/RECV INTERACTIONS
     }
 
     return 0;
 }
+
 
