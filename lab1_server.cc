@@ -21,9 +21,9 @@ using namespace std;
 #define BUFLEN 256
 
 int Create_tcpServer();
-int Create_udpServer(short unsigned int* port);
+int Create_udpServer(short unsigned int* port, sockaddr_in* udp_server_addrP, socklen_t* udp_server_addr_lenP );
 void test(int int_given, int msg_num);
-void RequestHandler(int tcp_client_fd);
+void RequestHandler(int tcp_client_fd, sockaddr_in* udp_server_addr, socklen_t* udp_server_addr_len);
 
 int main(int argc, char *argv[])
 {
@@ -38,6 +38,10 @@ int main(int argc, char *argv[])
 
     char        recv_buf[BUFLEN];
     char        send_buf[BUFLEN + 20];
+
+    sockaddr_in udp_server_addr;     // socket addr for this process
+    socklen_t   udp_server_addr_len = sizeof(udp_server_addr);
+
 
 
     int tcp_server_fd = Create_tcpServer();
@@ -69,7 +73,7 @@ int main(int argc, char *argv[])
 
         if (pid == 0)
         {
-           RequestHandler(tcp_client_fd);
+           RequestHandler(tcp_client_fd, &udp_server_addr, &udp_server_addr_len);
         }
     }
     return 0;
@@ -125,16 +129,13 @@ int Create_tcpServer()
     return tcp_server_fd;
 }
 
-int Create_udpServer(short unsigned int *port)
+int Create_udpServer(short unsigned int *port, sockaddr_in* udp_server_addrP, socklen_t* udp_server_addr_lenP)
 {
     // UDP: CREATE A UDP SERVER FOR GAME FOR ONE CLIENT
     //      OBTAIN THE UDP PORT NUMBER
     //      WAIT FOR THE CLIENT TO ISSUE JOIN
     //
     unsigned short int udp_server_port;
-    sockaddr_in udp_server_addr;     // socket addr for this process
-    socklen_t   udp_server_addr_len = sizeof(udp_server_addr);
-
     int         udp_server_fd;       // socket file descriptor
 
     cout << "[UDP] Echo server started..." << endl;
@@ -145,8 +146,12 @@ int Create_udpServer(short unsigned int *port)
     // if the return value is -1, the creation of socket is failed.
     test(udp_server_fd, 5);
 
+    sockaddr_in udp_server_addr;
+    socklen_t   udp_server_addr_len = sizeof(udp_server_addr);
+
     // initialize the socket address strcut by setting all bytes to 0
     memset(&udp_server_addr, 0, sizeof(udp_server_addr));
+    udp_server_addr = *udp_server_addrP;
 
     udp_server_addr.sin_family      = AF_INET;    // internet family
     udp_server_addr.sin_port        = 0;          // let the OS choose the port
@@ -216,7 +221,7 @@ void test(int int_given, int msg_num)
         exit(1);
     }
 }
-void RequestHandler(int tcp_client_fd)
+void RequestHandler(int tcp_client_fd, sockaddr_in* udp_server_addr, socklen_t* udp_server_addr_len)
 {
     sockaddr_in udp_client_addr;     // socket addr for client
     socklen_t   udp_client_addr_len = sizeof(udp_client_addr);
@@ -246,11 +251,10 @@ void RequestHandler(int tcp_client_fd)
 
     //if packet is join
     if (pkt_rcv.type == JOIN){
-
         // TCP: THE SERVER REPLIES JOIN_GRANT AND THE UDP SERVER PORT TO THE CLIENT
         char buf[32];
         short unsigned int udp_port = 0;
-        int udp_server_fd = Create_udpServer(&udp_port);
+        int udp_server_fd = Create_udpServer(&udp_port, udp_server_addr, udp_server_addr_len);
 
         stringstream ss;
         ss << udp_port;
@@ -272,7 +276,7 @@ void RequestHandler(int tcp_client_fd)
         test(close(tcp_client_fd),8);
 
 
-        Bulls_And_Cows new_game;
+        Bulls_And_Cows game;
         while(1)
         {
             //GAME: START A NEW GAME IF THE PLAYER HAS ALL
@@ -299,8 +303,40 @@ void RequestHandler(int tcp_client_fd)
             {
                 // GOT THE PORT NUMBER
                 int guess_num = 0;
+                int bulls = 0;
+                int cows = 0;
+                bool won = false;
                 memcpy(&guess_num,incoming_pkt.buffer, sizeof(guess_num));
                 cout << "The guess is " << atoi(incoming_pkt.buffer)  << endl;
+                won = game.Guess(incoming_pkt.buffer,bulls,cows);
+                cout << "bulls: " << bulls << " and cows " << cows << endl;
+                cout << "did you win? " << won << endl;
+
+                My_Packet outgoing_pkt;
+                outgoing_pkt.type = RESPONSE;
+
+                //stringstream ss_out;
+                //ss_out << bulls << "A" << cows << "B" ;
+                //memset(buf, 0, sizeof(buf));
+
+                //memcpy(pkt.buffer, ss_out.str().c_str(), sizeof(ss.str().c_str()));
+
+                bytes_sent = sendto(udp_server_fd, &outgoing_pkt, 
+                                sizeof(outgoing_pkt), 0,
+                                (sockaddr *) &udp_server_addr, 
+                                sizeof(udp_server_addr));
+                //check
+                test(bytes_sent,7);
+
+                char type_name_sent[16];
+
+                get_type_name(outgoing_pkt.type, type_name_sent);
+                if(bytes_sent < 0)
+                {
+                    cout << "[TCP] Sent: " << type_name_sent << endl;
+                }
+
+
             }
             else if(incoming_pkt.type == EXIT)
             {
