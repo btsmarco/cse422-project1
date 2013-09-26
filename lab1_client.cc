@@ -203,6 +203,25 @@ int main(int argc, char *argv[])
         }
 
         // UDP: SEND/RECV INTERACTIONS
+        //
+        //
+        My_Packet incoming_pkt;
+        char type_name_incoming[16];
+
+        // receive
+        bytes_received = recv(udp_connection_fd, &incoming_pkt, sizeof(incoming_pkt), 0);
+
+        get_type_name(incoming_pkt.type, type_name_incoming);
+
+        if(bytes_received < 0)
+        {
+            cerr << "[ERR] Error receiving message from server." << endl;
+            exit(1);
+        }
+        else
+        {
+            cout << "[UDP] Rcvd: " << type_name_incoming << endl;
+        }
     }
 
     return 0;
