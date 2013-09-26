@@ -37,11 +37,11 @@ int main(int argc, char *argv[])
     int         tcp_client_fd;
     sockaddr_in tcp_client_addr;     // socket addr for client
     socklen_t   tcp_client_addr_len = sizeof(tcp_client_addr);
-    int         bytes_received;
-    int         bytes_sent;
+    //int         bytes_received;
+    //int         bytes_sent;
 
-    char        recv_buf[BUFLEN];
-    char        send_buf[BUFLEN + 20];
+    //char        recv_buf[BUFLEN];
+    //char        send_buf[BUFLEN + 20];
 
 
     int tcp_server_fd = Create_tcpServer();
@@ -79,6 +79,12 @@ int main(int argc, char *argv[])
     return 0;
 }
 
+/*********************************
+ * Name:    Create_tcpServer
+ * Purpose: Start a TCP server
+ * Receive: a port number
+ * Return:  server file directory
+ *********************************/
 int Create_tcpServer()
 {
     cout << "[SYS] Parent process for TCP communication." << endl; 
@@ -129,6 +135,12 @@ int Create_tcpServer()
     return tcp_server_fd;
 }
 
+/*********************************
+ * Name:    Create_udpServer
+ * Purpose: Start a UDP server
+ * Receive: a port number
+ * Return:  server file directory
+ *********************************/
 int Create_udpServer(short unsigned int *port)
 {
     // UDP: CREATE A UDP SERVER FOR GAME FOR ONE CLIENT
@@ -173,6 +185,13 @@ int Create_udpServer(short unsigned int *port)
 
     return udp_server_fd;
 }
+
+/*********************************
+ * Name:    test
+ * Purpose: check for errors. And then print an error message and exit.
+ * Receive: The int to check and the type of error to print the message for.
+ * Return:  None
+ *********************************/
 void test(int int_given, int msg_num)
 {
     if( int_given < 0)
@@ -217,6 +236,13 @@ void test(int int_given, int msg_num)
         exit(1);
     }
 }
+
+/*********************************
+ * Name:    RequestHandler
+ * Purpose: Handle request for playing the game
+ * Receive: tcp_client_fd
+ * Return:  None
+ *********************************/
 void RequestHandler(int tcp_client_fd)
 {
     sockaddr_in udp_client_addr;     // socket addr for client
@@ -281,9 +307,6 @@ void RequestHandler(int tcp_client_fd)
             My_Packet incoming_pkt;
             char type_name_incoming[16];
 
-            // receive
-            //bytes_received = recv(udp_server_fd, &incoming_pkt, sizeof(incoming_pkt), 0);
-
             bytes_received = recvfrom(udp_server_fd, &incoming_pkt, sizeof(recv_buf), 0, 
                                   (sockaddr *) &udp_client_addr, 
                                   &udp_client_addr_len);
@@ -297,31 +320,28 @@ void RequestHandler(int tcp_client_fd)
             }
             else
             {
-                cout << "[UDP] Rcvd: " << type_name_incoming << endl;
+                cout << "[UDP] Rcvd: " << type_name_incoming << "  ";
             }
 
+            //UDP: RECV/SEND INTERACTIONS
+            My_Packet outgoing_pkt;
             if(incoming_pkt.type == GUESS)
             {
                 // GOT THE PORT NUMBER
-                //int guess_num = 0;
                 char guess[4];
                 int bulls = 0;
                 int cows = 0;
-                int sn = 0;
                 bool won = false;
 
-                //memcpy(&guess_num,incoming_pkt.buffer, sizeof(guess_num));
                 memcpy(&guess,incoming_pkt.buffer, 4);
-                cout << "The guess is " << atoi(incoming_pkt.buffer)  << endl;
+                cout << guess << endl;
                 won = game.Guess(guess,bulls,cows);
-                game.get_secret_number(sn);
-                cout << "bulls: " << bulls << " and cows " << cows << endl;
 
-                cout << "did you win? " << won << endl;
-                cout << "secret number " << sn << endl;
-
-                My_Packet outgoing_pkt;
                 outgoing_pkt.type = RESPONSE;
+                if(won == 1)
+                {
+                    game.Restart_Game();
+                }
 
                 stringstream ss_out;
                 ss_out << bulls << "A" << cows << "B" ;
@@ -329,35 +349,33 @@ void RequestHandler(int tcp_client_fd)
 
                 memcpy(outgoing_pkt.buffer, ss_out.str().c_str(), sizeof(ss.str().c_str()));
 
-                //bytes_sent = sendto(tcp_client_fd, &outgoing_pkt, 
-                  //              sizeof(outgoing_pkt), 0,
-                    //            (sockaddr *) &udp_server_addr, 
-                      //          sizeof(udp_server_addr));
-                bytes_sent = sendto(udp_server_fd, &outgoing_pkt, sizeof(send_buf), 
-                            0, (sockaddr *) &udp_client_addr, 
-                            udp_client_addr_len);
-
-
-                //check
-                test(bytes_sent,7);
-
-                char type_name_sent[16];
-
-                get_type_name(outgoing_pkt.type, type_name_sent);
-                if(bytes_sent > 0)
-                {
-                    cout << "[UDP] Sent: " << type_name_sent << endl;
-                }
-
-
             }
             else if(incoming_pkt.type == EXIT)
             {
-            
+                cout << endl;
+                outgoing_pkt.type = EXIT_GRANT;
+                memset(outgoing_pkt.buffer, 0, sizeof(outgoing_pkt.buffer));
+            }
+            bytes_sent = sendto(udp_server_fd, &outgoing_pkt, sizeof(send_buf), 
+                        0, (sockaddr *) &udp_client_addr, 
+                        udp_client_addr_len);
+
+            //check
+            test(bytes_sent,7);
+
+            char type_name_sent[16];
+
+            get_type_name(outgoing_pkt.type, type_name_sent);
+            if(bytes_sent > 0)
+            {
+                cout << "[UDP] Sent: " << type_name_sent << "  " << outgoing_pkt.buffer << endl;
             }
 
+            if(outgoing_pkt.type == EXIT_GRANT){
+                test(close(udp_server_fd),8);
+                break;
+            }
 
-            //UDP: RECV/SEND INTERACTIONS
         }
     }
 }
